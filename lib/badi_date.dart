@@ -1,4 +1,5 @@
 import 'package:badi_date/bahai_holyday.dart';
+import 'package:badi_date/names.dart';
 import 'package:badi_date/years.dart';
 import 'package:dart_suncalc/suncalc.dart';
 
@@ -6,7 +7,27 @@ import 'package:dart_suncalc/suncalc.dart';
 class BadiDate {
   static const LAST_YEAR_SUPPORTED = 221;
   static const YEAR_ONE_IN_GREGORIAN = 1844;
+  static const LAST_GREGORIAN_YEAR_SUPPORTED =
+      LAST_YEAR_SUPPORTED + YEAR_ONE_IN_GREGORIAN;
+
   static const YEAR_ZERO_IN_GREGORIAN = YEAR_ONE_IN_GREGORIAN - 1;
+
+  static List<String>? monthNames([String language = 'en']) =>
+      MONTH_NAME_TRANSLATIONS[language]?.values.toList();
+
+  static List<String> get monthNameTransliterations =>
+      MONTH_NAMES.values.toList();
+
+  static List<String>? monthTransliterationsWithNames(
+      [String language = 'en']) {
+    final languageNames = monthNames(language);
+    if (languageNames == null) return null;
+    return [
+      for (int i = 0; i < 19; i++)
+        '${monthNameTransliterations[i]} (${languageNames[i]})'
+    ];
+  }
+
   final int day;
 
   /// The month number with Baha = 1, ... Ayyam'i'Ha = 19, and Ala = 20
@@ -73,14 +94,40 @@ class BadiDate {
     return year % 19 == 0 ? 19 : year % 19;
   }
 
+  String? get yearName {
+    return YEAR_NAMES[year];
+  }
+
   /// Vahid = 19 years
   int get vahid {
     return (year / 19).floor() + 1;
   }
 
+  String? get vahidName {
+    return YEAR_NAMES[vahid];
+  }
+
   /// Kull'i'shay = 19 Vahids = 361 years
   int get kullIShay {
     return (year / 361).floor() + 1;
+  }
+
+  String? get monthName {
+    return isAyyamIHa ? AYYAMIHA_NAME : MONTH_NAMES[month];
+  }
+
+  String? get monthNameEnTr {
+    return '${monthNameIn('en')} ($monthName)';
+  }
+
+  String? get monthNameTrEn {
+    return '$monthName (${monthNameIn('en')})';
+  }
+
+  String? monthNameIn(String languageCode) {
+    return isAyyamIHa
+        ? AYYAMIHA_NAME
+        : MONTH_NAME_TRANSLATIONS[languageCode]?[month] ?? MONTH_NAMES[month];
   }
 
   /// Number of Ayyam'i'ha days the year has
@@ -127,6 +174,16 @@ class BadiDate {
     return day == 1 && !isAyyamIHa;
   }
 
+  bool isBefore(BadiDate other) {
+    return year < other.year ||
+        year == other.year && dayOfYear < other.dayOfYear;
+  }
+
+  bool isOnOrBefore(BadiDate other) {
+    return year < other.year ||
+        year == other.year && dayOfYear <= other.dayOfYear;
+  }
+
   static DateTime _calculateSunSet(DateTime date,
       {double? longitude, double? latitude, double? altitude}) {
     final fallback = DateTime(date.year, date.month, date.day, 18);
@@ -168,14 +225,14 @@ class BadiDate {
 
   /// Start DateTime
   DateTime get startDateTime {
-    final date = nawRuzDate.add(Duration(days: dayOfYear - 2));
+    final date = nawRuzDate.add(Duration(days: dayOfYear - 1));
     return _utcToLocale(_calculateSunSet(date,
         longitude: longitude, latitude: latitude, altitude: altitude));
   }
 
   /// End DateTime
   DateTime get endDateTime {
-    final date = nawRuzDate.add(Duration(days: dayOfYear - 1));
+    final date = nawRuzDate.add(Duration(days: dayOfYear));
     return _utcToLocale(_calculateSunSet(date,
         longitude: longitude, latitude: latitude, altitude: altitude));
   }
@@ -226,8 +283,9 @@ class BadiDate {
     // we convert to utc to avoid daylight saving issues
     final dateTime = DateTime.utc(
         gregorianDate.year, gregorianDate.month, gregorianDate.day);
-    if (dateTime.isAfter(DateTime.utc(2065, 3, 19))) {
-      throw UnsupportedError('Dates after 2064-03-19 are not supported yet.');
+    if (dateTime.isAfter(DateTime.utc(LAST_GREGORIAN_YEAR_SUPPORTED, 3, 19))) {
+      throw UnsupportedError(
+          'Dates after $LAST_GREGORIAN_YEAR_SUPPORTED-03-19 are not supported yet.');
     }
     final isAfterSunset = gregorianDate.isAfter(_calculateSunSet(gregorianDate,
         longitude: longitude, latitude: latitude, altitude: altitude));
@@ -256,6 +314,11 @@ class BadiDate {
         altitude: altitude);
   }
 
+  @override
+  String toString() {
+    return 'BadiDate($year/$month/$day @ $longitude,$latitude^$altitude)';
+  }
+
   /// If the BadiDate is a Baha'i Holy day the Holy date else null
   BahaiHolyDayEnum? get holyDay {
     final birthOfBab = yearSpecifics[year]?.birthOfBab;
@@ -266,6 +329,35 @@ class BadiDate {
                 dayOfYear,
             orElse: () => null)
         ?.type;
+  }
+
+  String? get holyDayNameEn {
+    return holyDayNameIn('en');
+  }
+
+  BadiDate get nextDay {
+    if (month == 19 && day == 19) {
+      return BadiDate(
+        day: 1,
+        month: 1,
+        year: year + 1,
+        longitude: longitude,
+        latitude: latitude,
+        altitude: altitude,
+      );
+    }
+    return _fromYearAndDayOfYear(
+      year: year,
+      doy: dayOfYear + 1,
+      longitude: longitude,
+      latitude: latitude,
+      altitude: altitude,
+    );
+  }
+
+  String? holyDayNameIn(String languageCode) {
+    if (holyDay == null) return null;
+    return HOLY_DAYS[languageCode]?[holyDay];
   }
 
   /// The BadiDate of the next feast

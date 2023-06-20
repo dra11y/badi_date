@@ -116,11 +116,13 @@ class BadiDate {
     return isAyyamIHa ? AYYAMIHA_NAME : MONTH_NAMES[month];
   }
 
-  String? get monthNameEnTr {
+  String? get monthNameEnglishPersian {
+    if (isAyyamIHa) return AYYAMIHA_NAME;
     return '${monthNameIn('en')} ($monthName)';
   }
 
-  String? get monthNameTrEn {
+  String? get monthNamePersianEnglish {
+    if (isAyyamIHa) return AYYAMIHA_NAME;
     return '$monthName (${monthNameIn('en')})';
   }
 
